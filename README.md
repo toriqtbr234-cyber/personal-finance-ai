@@ -1,97 +1,165 @@
-# FinanceAI — Personal Finance Assistant 💰
+# ◈ FinanceAI — AI-Powered Personal Finance Assistant
 
-Asisten keuangan pribadi berbasis AI yang dibangun dengan **Python + Flask + Gemini API**.
+> Asisten keuangan pribadi berbasis AI yang dibangun dengan **Python + Flask + Google Gemini API**
+
+![Python](https://img.shields.io/badge/Python-3.9+-blue?style=flat-square&logo=python)
+![Flask](https://img.shields.io/badge/Flask-3.0.3-black?style=flat-square&logo=flask)
+![Gemini](https://img.shields.io/badge/Gemini-1.5_Flash-orange?style=flat-square&logo=google)
+![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 ---
 
-## 🗂️ Struktur Proyek
+## 📌 About This Project
+
+**FinanceAI** is a locally-deployed web-based personal finance assistant that leverages
+Google Gemini AI to help users manage their finances effectively. Built as a capstone
+project for the AI Developer Program at Parahyangan Catholic University.
+
+| Info | Detail |
+|---|---|
+| **Student** | Muhamad Toriq Thabrani |
+| **Student ID** | 6162201034 |
+| **Institution** | Parahyangan Catholic University |
+| **Program** | AI Developer Program |
+
+---
+
+## ✨ Features
+
+| Feature | Description |
+|---|---|
+| 💰 **Budget Planner** | AI-generated 50/30/20 budget allocation based on income, expenses, city, and dependants |
+| 📊 **Expense Analyzer** | Manual or CSV expense input with AI-driven spending insights and efficiency score |
+| 🤖 **AI Financial Advisor** | Multi-turn conversational chatbot powered by Gemini with financial context awareness |
+| 🎯 **Savings Goal Planner** | AI-generated monthly savings plan with milestone tracking and compound interest projection |
+| 📈 **Investment Guidance** | Risk-profile-based investment recommendations with Indonesian instrument examples |
+| 📄 **Report & Visualisation** | Matplotlib charts (5 types) + downloadable 4-page PDF report via ReportLab |
+
+---
+
+## 🛠️ Tech Stack
+
+- **Backend:** Python 3.x, Flask 3.0.3
+- **AI Engine:** Google Gemini 1.5 Flash API
+- **Visualisation:** Matplotlib 3.9.0
+- **PDF Generation:** ReportLab 4.2.2
+- **Data Processing:** Pandas 2.2.2
+- **Frontend:** HTML5, CSS3, Vanilla JavaScript, Jinja2
+- **Storage:** Flask Session (in-memory, no database)
+
+---
+
+## 🗂️ Project Structure
 
 ```
 personal-finance-ai/
-├── app.py                  ← Flask app utama + routing
-├── config.py               ← Konfigurasi environment
-├── requirements.txt        ← Daftar library Python
-├── .env.example            ← Template environment variables
+├── app.py                  ← Flask app + 20 routes
+├── gemini_client.py        ← All Gemini AI functions + prompt engineering
+├── chart_generator.py      ← 6 Matplotlib chart functions
+├── report_generator.py     ← ReportLab PDF generator (4-page report)
+├── config.py               ← Environment variable loader
+├── requirements.txt        ← Python dependencies
+├── .env.example            ← Environment variable template
 ├── static/
-│   ├── css/style.css       ← Desain & tampilan
-│   └── js/main.js          ← Utilitas JavaScript
+│   ├── css/style.css       ← Custom dark-theme design system
+│   └── js/main.js          ← Shared JavaScript utilities
 └── templates/
-    ├── base.html           ← Layout utama (sidebar + topbar)
-    ├── index.html          ← Dashboard (Week 1 ✅)
-    ├── budget.html         ← Budget Planner (Week 2)
-    ├── expenses.html       ← Expense Analyzer (Week 3)
-    ├── chatbot.html        ← AI Advisor / Chatbot (Week 4)
-    ├── savings.html        ← Savings & Investment (Week 5)
-    └── report.html         ← Laporan & Visualisasi (Week 6)
+    ├── base.html           ← Master layout (sidebar + topbar)
+    ├── index.html          ← Dashboard
+    ├── budget.html         ← Budget Planner
+    ├── expenses.html       ← Expense Analyzer
+    ├── chatbot.html        ← AI Financial Advisor
+    ├── savings.html        ← Savings Goal & Investment Guidance
+    └── report.html         ← Report & Visualisation
 ```
 
 ---
 
-## 🚀 Cara Menjalankan (Setup Week 1)
+## 🚀 Getting Started
 
-### 1. Clone / Buat Folder Proyek
+### Prerequisites
+- Python 3.9 or higher
+- A Google Gemini API key — get one free at [aistudio.google.com](https://aistudio.google.com/app/apikey)
+
+### Installation
+
+**1. Clone the repository**
 ```bash
-mkdir personal-finance-ai
+git clone https://github.com/toriqtbr234-cyber/personal-finance-ai.git
 cd personal-finance-ai
 ```
 
-### 2. Buat Virtual Environment
+**2. Create and activate a virtual environment**
 ```bash
+# Windows
 python -m venv venv
-
-# Aktifkan (Windows)
 venv\Scripts\activate
 
-# Aktifkan (Mac/Linux)
+# Mac / Linux
+python -m venv venv
 source venv/bin/activate
 ```
 
-### 3. Install Library
+**3. Install dependencies**
 ```bash
 pip install -r requirements.txt
 ```
 
-### 4. Siapkan File .env
+**4. Set up environment variables**
 ```bash
+# Windows
+copy .env.example .env
+
+# Mac / Linux
 cp .env.example .env
 ```
-Kemudian buka file `.env` dan isi:
+
+Open `.env` and fill in your values:
 ```
-GEMINI_API_KEY=masukkan_api_key_gemini_kamu
-FLASK_SECRET_KEY=buat_string_acak_panjang_di_sini
+GEMINI_API_KEY=your_gemini_api_key_here
+FLASK_SECRET_KEY=any_long_random_string_here
 ```
 
-### 5. Dapatkan Gemini API Key
-1. Buka https://aistudio.google.com/app/apikey
-2. Klik **Create API Key**
-3. Copy dan paste ke file `.env`
-
-### 6. Jalankan Aplikasi
+**5. Run the application**
 ```bash
 python app.py
 ```
-Buka browser → **http://localhost:5000**
+
+**6. Open in browser**
+
+Navigate to **http://localhost:5000**
 
 ---
 
-## 📅 Progress Pengerjaan
+## 📱 Application Pages
 
-| Minggu | Fitur                          | Status     |
-|--------|--------------------------------|------------|
-| 1      | Setup + Basic UI Framework     | ✅ Selesai  |
-| 2      | Budget Planner                 | 🔜 Akan dikerjakan |
-| 3      | Expense Analyzer               | 🔜 Akan dikerjakan |
-| 4      | AI Chatbot / Advisor           | 🔜 Akan dikerjakan |
-| 5      | Savings Goal & Investment      | 🔜 Akan dikerjakan |
-| 6      | Visualisasi & Report           | 🔜 Akan dikerjakan |
+| Page | Route | Description |
+|---|---|---|
+| Dashboard | `/` | Financial summary hub |
+| Budget Planner | `/budget` | AI budget allocation |
+| Expense Analyzer | `/expenses` | Expense tracking + AI insights |
+| AI Advisor | `/chatbot` | Conversational financial advisor |
+| Savings & Invest | `/savings` | Savings goal + investment guidance |
+| Report | `/report` | Charts + PDF report download |
 
 ---
 
-## 🔧 VS Code Extensions yang Direkomendasikan
+## ⚠️ Important Notes
 
-- **Python** (Microsoft)
-- **Pylance**
-- **Flask Snippets**
-- **Jinja2 Snippets**
-- **dotenv** (file .env highlighting)
-- **Thunder Client** (test API endpoints)
+- **No database required** — all data is stored in Flask session (resets on server restart)
+- **Never commit your `.env` file** — it contains your private API key
+- **Local use only** — the app runs on `localhost:5000` and is not deployed to a server
+- **Gemini free tier** — rapid successive AI calls may hit rate limits; wait a few seconds between requests
+
+---
+
+## 📄 License
+
+This project is created for academic purposes as part of the AI Developer Program capstone project.
+
+---
+
+<div align="center">
+  <strong>◈ FinanceAI</strong> · Built with Python, Flask & Google Gemini AI<br>
+  Muhamad Toriq Thabrani · 6162201034 · Parahyangan Catholic University
+</div>
