@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>{% block title %}FinanceAI{% endblock %} — Asisten Keuangan Pribadi</title>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+
+  <!-- CSS Variables & Global Styles -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+
+<body>
+
+  <!-- ── Sidebar Navigation ───────────────────────────────────────────── -->
+  <aside class="sidebar">
+    <div class="sidebar-brand">
+      <span class="brand-icon">◈</span>
+      <span class="brand-name">FinanceAI</span>
+    </div>
+
+    <nav class="sidebar-nav">
+      <a href="{{ url_for('dashboard') }}"
+         class="nav-item {% if page == 'dashboard' %}active{% endif %}">
+        <span class="nav-icon">⬡</span>
+        <span>Dashboard</span>
+      </a>
+      <a href="{{ url_for('budget') }}"
+         class="nav-item {% if page == 'budget' %}active{% endif %}">
+        <span class="nav-icon">◎</span>
+        <span>Budget Planner</span>
+      </a>
+      <a href="{{ url_for('expenses') }}"
+         class="nav-item {% if page == 'expenses' %}active{% endif %}">
+        <span class="nav-icon">◑</span>
+        <span>Expense Analyzer</span>
+      </a>
+      <a href="{{ url_for('chatbot') }}"
+         class="nav-item {% if page == 'chatbot' %}active{% endif %}">
+        <span class="nav-icon">◈</span>
+        <span>AI Advisor</span>
+      </a>
+      <a href="{{ url_for('savings') }}"
+         class="nav-item {% if page == 'savings' %}active{% endif %}">
+        <span class="nav-icon">◐</span>
+        <span>Savings & Invest</span>
+      </a>
+      <a href="{{ url_for('report') }}"
+         class="nav-item {% if page == 'report' %}active{% endif %}">
+        <span class="nav-icon">▣</span>
+        <span>Report</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span class="ai-badge">Powered by Gemini AI</span>
+    </div>
+  </aside>
+
+  <!-- ── Main Content ─────────────────────────────────────────────────── -->
+  <main class="main-content">
+    <header class="topbar">
+      <div class="topbar-left">
+        <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+        <p class="page-subtitle">{% block page_subtitle %}{% endblock %}</p>
+      </div>
+      <div class="topbar-right">
+        <div class="status-dot"></div>
+        <span class="status-text">AI Ready</span>
+      </div>
+    </header>
+
+    <div class="content-area">
+      {% block content %}{% endblock %}
+    </div>
+  </main>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

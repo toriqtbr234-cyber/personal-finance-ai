@@ -1,0 +1,490 @@
+{% extends "base.html" %}
+
+{% block title %}Laporan{% endblock %}
+{% block page_title %}Laporan & Visualisasi{% endblock %}
+{% block page_subtitle %}Ringkasan lengkap keuanganmu — siap diunduh sebagai PDF{% endblock %}
+
+{% block content %}
+
+<!-- ══════ ACTION BAR ═══════════════════════════════════════════════════════ -->
+<div class="report-action-bar">
+  <div class="report-completeness">
+    <span class="completeness-label">Kelengkapan Data:</span>
+    <div class="completeness-dots">
+      <span class="c-dot {% if has_budget %}dot-on{% endif %}" title="Budget Planner">◎ Budget</span>
+      <span class="c-dot {% if has_expenses %}dot-on{% endif %}" title="Expense Analyzer">◑ Pengeluaran</span>
+      <span class="c-dot {% if has_insights %}dot-on{% endif %}" title="AI Insights">✦ AI Insight</span>
+      <span class="c-dot {% if has_savings %}dot-on{% endif %}" title="Savings Goal">◐ Tabungan</span>
+      <span class="c-dot {% if has_invest %}dot-on{% endif %}" title="Investment">⬡ Investasi</span>
+    </div>
+  </div>
+  <div style="display:flex; gap:10px;">
+    <button class="btn btn-outline" id="btn-reload-charts" onclick="loadCharts()">
+      ↺ Refresh Grafik
+    </button>
+    <a href="/report/download-pdf" class="btn btn-primary" id="btn-download">
+      ⬇ Unduh PDF
+    </a>
+  </div>
+</div>
+
+<!-- ══════ BELUM ADA DATA ═══════════════════════════════════════════════════ -->
+{% if not has_budget and not has_expenses and not has_savings %}
+<div class="no-data-banner">
+  <div style="font-size:44px; opacity:0.25; margin-bottom:16px;">▣</div>
+  <p class="no-data-title">Belum ada data untuk ditampilkan</p>
+  <p class="no-data-text">
+    Lengkapi minimal satu modul berikut untuk melihat laporan:
+  </p>
+  <div class="no-data-links">
+    <a href="/budget"   class="btn btn-outline">◎ Budget Planner</a>
+    <a href="/expenses" class="btn btn-outline">◑ Expense Analyzer</a>
+    <a href="/savings"  class="btn btn-outline">◐ Savings Goal</a>
+  </div>
+</div>
+{% else %}
+
+<!-- ══════ OVERVIEW CHART (Dashboard grafik 2x2) ══════════════════════════ -->
+<div class="report-section">
+  <h2 class="report-section-title">Dashboard Grafik</h2>
+  <div class="chart-overview-wrap card" id="chart-overview-wrap">
+    <div class="chart-loading" id="chart-overview-loading">
+      <div class="chart-orb"></div>
+      <p>Membuat grafik, mohon tunggu…</p>
+    </div>
+    <img id="chart-overview-img" class="chart-img" style="display:none;"
+         alt="Dashboard grafik keuangan">
+  </div>
+</div>
+
+<!-- ══════ SECTION 1: RINGKASAN EKSEKUTIF ═════════════════════════════════ -->
+<div class="report-section">
+  <h2 class="report-section-title">Ringkasan Keuangan</h2>
+  <div class="summary-grid">
+
+    {% if has_budget %}
+    {% set b_in  = budget_data.get('input',  {}) %}
+    {% set b_out = budget_data.get('output', {}) %}
+    <div class="summary-card sc-teal">
+      <p class="sc-label">Pendapatan Bulanan</p>
+      <p class="sc-value">
+        Rp {{ "{:,.0f}".format(b_in.get('pendapatan', 0)) }}
+      </p>
+      <p class="sc-sub">{{ b_in.get('kota', '') }}</p>
+    </div>
+    <div class="summary-card sc-rose">
+      <p class="sc-label">Total Pengeluaran Aktual</p>
+      <p class="sc-value">Rp {{ "{:,.0f}".format(total_expense) }}</p>
+      <p class="sc-sub">{{ expenses | length }} transaksi</p>
+    </div>
+    <div class="summary-card sc-gold">
+      <p class="sc-label">Alokasi Tabungan (AI)</p>
+      <p class="sc-value">
+        Rp {{ "{:,.0f}".format(b_out.get('alokasi', {}).get('tabungan', 0)) }}
+      </p>
+      <p class="sc-sub">{{ b_out.get('persen', {}).get('tabungan', '—') }}% dari pendapatan</p>
+    </div>
+    <div class="summary-card {% if b_out.get('status') == 'sehat' %}sc-teal{% elif b_out.get('status') == 'kritis' %}sc-rose{% else %}sc-gold{% endif %}">
+      <p class="sc-label">Status Keuangan</p>
+      <p class="sc-value">{{ b_out.get('status', '—') | capitalize }}</p>
+      <p class="sc-sub">{{ b_out.get('ringkasan', '')[:55] }}{% if b_out.get('ringkasan', '') | length > 55 %}…{% endif %}</p>
+    </div>
+    {% else %}
+    <div class="summary-card sc-muted">
+      <p class="sc-label">Budget Planner</p>
+      <p class="sc-value">—</p>
+      <p class="sc-sub"><a href="/budget" class="report-link">Isi sekarang →</a></p>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+<!-- ══════ SECTION 2: BUDGET & ALOKASI ═══════════════════════════════════ -->
+{% if has_budget %}
+<div class="report-section">
+  <h2 class="report-section-title">Budget Planner</h2>
+  <div class="report-two-col">
+
+    <!-- Tabel data input -->
+    <div class="card">
+      <p class="card-title" style="margin-bottom:14px;">Data Keuangan</p>
+      {% set b_in  = budget_data.get('input',  {}) %}
+      {% set b_out = budget_data.get('output', {}) %}
+      <table class="report-table">
+        <tr><td>Pendapatan</td><td>Rp {{ "{:,.0f}".format(b_in.get('pendapatan', 0)) }}</td></tr>
+        <tr><td>Pengeluaran Wajib</td><td>Rp {{ "{:,.0f}".format(b_in.get('pengeluaran_wajib', 0)) }}</td></tr>
+        <tr><td>Pengeluaran Harian</td><td>Rp {{ "{:,.0f}".format(b_in.get('pengeluaran_tambahan', 0)) }}</td></tr>
+        <tr><td>Kota</td><td>{{ b_in.get('kota', '—') }}</td></tr>
+        <tr><td>Tanggungan</td><td>{{ b_in.get('tanggungan', 0) }} orang</td></tr>
+        {% if b_out.get('alokasi') %}
+        <tr class="table-separator"><td colspan="2"></td></tr>
+        <tr><td>Alokasi Kebutuhan</td>
+          <td>Rp {{ "{:,.0f}".format(b_out.get('alokasi', {}).get('kebutuhan', 0)) }}
+            ({{ b_out.get('persen', {}).get('kebutuhan', '—') }}%)</td></tr>
+        <tr><td>Alokasi Keinginan</td>
+          <td>Rp {{ "{:,.0f}".format(b_out.get('alokasi', {}).get('keinginan', 0)) }}
+            ({{ b_out.get('persen', {}).get('keinginan', '—') }}%)</td></tr>
+        <tr><td>Alokasi Tabungan</td>
+          <td>Rp {{ "{:,.0f}".format(b_out.get('alokasi', {}).get('tabungan', 0)) }}
+            ({{ b_out.get('persen', {}).get('tabungan', '—') }}%)</td></tr>
+        {% endif %}
+      </table>
+      {% if b_out.get('saran_ai') %}
+      <div class="ai-quote">
+        <span class="ai-quote-icon">✦</span>
+        <p>{{ b_out.get('saran_ai', '') }}</p>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Chart budget donut -->
+    <div class="card chart-card">
+      <p class="card-title" style="margin-bottom:14px;">Distribusi Alokasi Anggaran</p>
+      <div class="chart-placeholder" id="chart-budget-wrap">
+        <div class="chart-loading-sm" id="chart-budget-loading">
+          <div class="chart-orb-sm"></div>
+        </div>
+        <img id="chart-budget-img" class="chart-img" style="display:none;"
+             alt="Grafik alokasi anggaran">
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endif %}
+
+<!-- ══════ SECTION 3: EXPENSE ANALYZER ═══════════════════════════════════ -->
+{% if has_expenses %}
+<div class="report-section">
+  <h2 class="report-section-title">Expense Analyzer</h2>
+  <div class="report-two-col">
+
+    <!-- Tabel kategori -->
+    <div class="card">
+      <p class="card-title" style="margin-bottom:14px;">
+        Rincian per Kategori
+        <span class="card-sub">{{ expenses | length }} transaksi · Rp {{ "{:,.0f}".format(total_expense) }}</span>
+      </p>
+      {% set ns = namespace(totals={}) %}
+      {% for e in expenses %}
+        {% set _ = ns.totals.update({e.kategori: ns.totals.get(e.kategori, 0) + e.jumlah}) %}
+      {% endfor %}
+      <table class="report-table">
+        <tr class="table-header">
+          <th>Kategori</th><th>Total</th><th>%</th>
+        </tr>
+        {% for kat, val in ns.totals.items() | sort(attribute='1', reverse=True) %}
+        <tr>
+          <td>{{ kat }}</td>
+          <td>Rp {{ "{:,.0f}".format(val) }}</td>
+          <td>{{ "{:.1f}".format(val / total_expense * 100 if total_expense else 0) }}%</td>
+        </tr>
+        {% endfor %}
+      </table>
+
+      {% if has_insights %}
+      <div class="ai-quote">
+        <span class="ai-quote-icon">✦</span>
+        <p>{{ expense_insights.get('insight_utama', '')[:200] }}{% if expense_insights.get('insight_utama', '') | length > 200 %}…{% endif %}</p>
+      </div>
+      {% if expense_insights.get('skor_pengeluaran') %}
+      <div class="score-inline">
+        <span class="score-inline-num">{{ expense_insights.get('skor_pengeluaran', '—') }}</span>
+        <span class="score-inline-lbl">/ 100 — {{ expense_insights.get('label_skor', '') }}</span>
+      </div>
+      {% endif %}
+      {% endif %}
+    </div>
+
+    <!-- Chart pie & bar -->
+    <div style="display:flex; flex-direction:column; gap:16px;">
+      <div class="card chart-card">
+        <p class="card-title" style="margin-bottom:10px;">Pie Chart Pengeluaran</p>
+        <div id="chart-pie-wrap" class="chart-placeholder">
+          <div class="chart-loading-sm" id="chart-pie-loading"><div class="chart-orb-sm"></div></div>
+          <img id="chart-pie-img" class="chart-img" style="display:none;" alt="Pie chart pengeluaran">
+        </div>
+      </div>
+      <div class="card chart-card">
+        <p class="card-title" style="margin-bottom:10px;">Bar Chart per Kategori</p>
+        <div id="chart-bar-wrap" class="chart-placeholder">
+          <div class="chart-loading-sm" id="chart-bar-loading"><div class="chart-orb-sm"></div></div>
+          <img id="chart-bar-img" class="chart-img" style="display:none;" alt="Bar chart pengeluaran">
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endif %}
+
+<!-- ══════ SECTION 4: SAVINGS & INVESTMENT ════════════════════════════════ -->
+{% if has_savings or has_invest %}
+<div class="report-section">
+  <h2 class="report-section-title">Savings & Investment</h2>
+  <div class="report-two-col">
+
+    {% if has_savings %}
+    <div class="card">
+      <p class="card-title" style="margin-bottom:14px;">Savings Goal Plan</p>
+      <table class="report-table">
+        <tr><td>Tujuan</td><td>{{ savings_plan.get('nama_tujuan', '—') }}</td></tr>
+        <tr><td>Target Dana</td><td>Rp {{ "{:,.0f}".format(savings_plan.get('target_jumlah', 0)) }}</td></tr>
+        <tr><td>Dana Awal</td><td>Rp {{ "{:,.0f}".format(savings_plan.get('tabungan_awal', 0)) }}</td></tr>
+        <tr><td>Durasi</td><td>{{ savings_plan.get('durasi_bulan', '—') }} bulan</td></tr>
+        <tr><td>Tabungan/Bulan</td><td>Rp {{ "{:,.0f}".format(savings_plan.get('tabungan_per_bulan', 0)) }}</td></tr>
+        <tr><td>Total Ditabung</td><td>Rp {{ "{:,.0f}".format(savings_plan.get('total_ditabung', 0)) }}</td></tr>
+        <tr><td>Est. Bunga</td><td>Rp {{ "{:,.0f}".format(savings_plan.get('bunga_estimasi', 0)) }}</td></tr>
+        <tr><td>Total + Bunga</td><td>Rp {{ "{:,.0f}".format(savings_plan.get('total_dengan_bunga', 0)) }}</td></tr>
+        <tr><td>Kelayakan</td><td>{{ savings_plan.get('feasibility', '—') | capitalize }}</td></tr>
+      </table>
+      {% if savings_plan.get('catatan_ai') %}
+      <div class="ai-quote">
+        <span class="ai-quote-icon">◐</span>
+        <p><i>{{ savings_plan.get('catatan_ai', '') }}</i></p>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if has_savings %}
+    <div class="card chart-card">
+      <p class="card-title" style="margin-bottom:10px;">Proyeksi Tabungan</p>
+      <div id="chart-savings-wrap" class="chart-placeholder">
+        <div class="chart-loading-sm" id="chart-savings-loading"><div class="chart-orb-sm"></div></div>
+        <img id="chart-savings-img" class="chart-img" style="display:none;" alt="Proyeksi tabungan">
+      </div>
+      {% if has_invest %}
+      <div style="margin-top:16px;">
+        <p class="card-title" style="margin-bottom:8px;">Profil Investasi</p>
+        <div class="invest-summary">
+          <span class="invest-profil">{{ invest_guidance.get('profil', '—') }}</span>
+          <span class="invest-horizon">{{ invest_guidance.get('waktu_ideal', '—') }}</span>
+        </div>
+        <p style="font-size:12px; color:var(--text-muted); margin-top:8px;">
+          {{ invest_guidance.get('deskripsi_profil', '')[:150] }}…
+        </p>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endif %}
+
+<!-- ══════ SECTION 5: ANGGARAN vs AKTUAL ════════════════════════════════ -->
+{% if has_budget and has_expenses %}
+<div class="report-section">
+  <h2 class="report-section-title">Anggaran vs Realisasi</h2>
+  <div class="card chart-card-wide">
+    <div id="chart-vs-wrap" class="chart-placeholder">
+      <div class="chart-loading-sm" id="chart-vs-loading"><div class="chart-orb-sm"></div></div>
+      <img id="chart-vs-img" class="chart-img" style="display:none;"
+           alt="Perbandingan anggaran vs aktual">
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endif %}{# end has_data check #}
+
+{% endblock %}
+
+
+{% block scripts %}
+<style>
+/* ── Action bar ──────────────────────────────────────────── */
+.report-action-bar {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:28px; padding:14px 20px;
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:var(--radius-md);
+}
+.completeness-label { font-size:11px; font-family:var(--font-mono);
+  color:var(--text-muted); margin-right:12px; }
+.completeness-dots  { display:flex; gap:10px; align-items:center; }
+.c-dot {
+  font-size:12px; color:var(--text-muted);
+  padding:4px 10px; border-radius:12px;
+  border:1px solid var(--border); transition:all 0.2s;
+}
+.c-dot.dot-on {
+  color:var(--accent-teal);
+  border-color:rgba(45,212,191,0.35);
+  background:rgba(45,212,191,0.08);
+}
+
+/* ── No data banner ──────────────────────────────────────── */
+.no-data-banner {
+  text-align:center; padding:80px 40px;
+  border:1px dashed var(--border); border-radius:var(--radius-lg);
+}
+.no-data-title { font-family:var(--font-display); font-size:20px;
+  color:var(--text-secondary); }
+.no-data-text  { font-size:13px; color:var(--text-muted); margin:10px 0 20px; }
+.no-data-links { display:flex; gap:12px; justify-content:center; }
+
+/* ── Report sections ─────────────────────────────────────── */
+.report-section { margin-bottom:36px; }
+.report-section-title {
+  font-family:var(--font-display); font-size:18px;
+  color:var(--text-primary); margin-bottom:16px;
+  padding-bottom:10px; border-bottom:1px solid var(--border);
+}
+
+/* ── Summary grid ────────────────────────────────────────── */
+.summary-grid {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:16px;
+}
+.summary-card {
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:var(--radius-md); padding:18px 20px;
+}
+.sc-teal { border-top:3px solid var(--accent-teal); }
+.sc-gold { border-top:3px solid var(--accent-gold); }
+.sc-rose { border-top:3px solid var(--accent-rose); }
+.sc-blue { border-top:3px solid var(--accent-blue); }
+.sc-muted{ border-top:3px solid var(--text-muted);  }
+.sc-label { font-size:10px; font-family:var(--font-mono);
+  letter-spacing:0.1em; text-transform:uppercase;
+  color:var(--text-muted); margin-bottom:8px; }
+.sc-value { font-family:var(--font-display); font-size:20px;
+  color:var(--text-primary); margin-bottom:4px; }
+.sc-sub   { font-size:11px; color:var(--text-muted); }
+
+/* ── Two-col layout ──────────────────────────────────────── */
+.report-two-col { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+
+/* ── Report table ────────────────────────────────────────── */
+.report-table { width:100%; border-collapse:collapse; font-size:13px; }
+.report-table tr { border-bottom:1px solid var(--border); }
+.report-table tr:last-child { border-bottom:none; }
+.report-table td, .report-table th {
+  padding:8px 4px; color:var(--text-secondary);
+}
+.report-table td:first-child { color:var(--text-muted); width:52%; }
+.report-table .table-header th {
+  font-size:10px; font-family:var(--font-mono);
+  text-transform:uppercase; letter-spacing:0.08em;
+  color:var(--text-muted); padding-bottom:10px;
+}
+.report-table .table-separator td { padding:4px 0; }
+.card-sub { font-size:11px; color:var(--text-muted);
+  font-family:var(--font-mono); margin-left:8px; }
+
+/* ── AI quote ────────────────────────────────────────────── */
+.ai-quote {
+  display:flex; gap:10px; align-items:flex-start;
+  margin-top:14px; padding:12px 14px;
+  background:rgba(201,168,76,0.06);
+  border-left:3px solid var(--accent-gold);
+  border-radius:0 var(--radius-sm) var(--radius-sm) 0;
+}
+.ai-quote-icon { color:var(--accent-gold); font-size:14px; flex-shrink:0; margin-top:2px; }
+.ai-quote p { font-size:12px; color:var(--text-secondary); line-height:1.6; }
+
+/* ── Score inline ────────────────────────────────────────── */
+.score-inline { display:flex; align-items:baseline; gap:6px; margin-top:10px; }
+.score-inline-num {
+  font-family:var(--font-display); font-size:28px; color:var(--accent-gold);
+}
+.score-inline-lbl { font-size:12px; color:var(--text-muted); }
+
+/* ── Chart containers ────────────────────────────────────── */
+.chart-overview-wrap { padding:20px; }
+.chart-card          { padding:20px; }
+.chart-card-wide     { padding:20px; }
+.chart-placeholder   { min-height:120px; display:flex; align-items:center; justify-content:center; }
+.chart-img           { width:100%; border-radius:var(--radius-sm); display:block; }
+
+/* Loading orbs */
+.chart-loading {
+  display:flex; flex-direction:column; align-items:center;
+  justify-content:center; padding:60px 0; gap:16px;
+  color:var(--text-muted); font-size:13px;
+}
+.chart-orb {
+  width:44px; height:44px; border-radius:50%;
+  border:2px solid var(--border);
+  border-top-color:var(--accent-gold);
+  animation:spin 0.9s linear infinite;
+}
+.chart-loading-sm { display:flex; justify-content:center; padding:20px; }
+.chart-orb-sm {
+  width:28px; height:28px; border-radius:50%;
+  border:2px solid var(--border);
+  border-top-color:var(--accent-gold);
+  animation:spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── Invest summary ──────────────────────────────────────── */
+.invest-summary { display:flex; align-items:center; gap:10px; }
+.invest-profil  {
+  padding:5px 12px; border-radius:12px;
+  background:rgba(201,168,76,0.12);
+  border:1px solid var(--border-accent);
+  color:var(--accent-gold); font-size:12px; font-weight:600;
+}
+.invest-horizon { font-size:12px; color:var(--text-muted); }
+
+.report-link { color:var(--accent-gold); text-decoration:underline; font-size:12px; }
+</style>
+
+<script>
+async function loadCharts() {
+  // Tampilkan semua loading state
+  const chartIds = ['overview','budget','pie','bar','savings','vs'];
+  chartIds.forEach(id => {
+    const loadEl = document.getElementById(`chart-${id}-loading`);
+    const imgEl  = document.getElementById(`chart-${id}-img`);
+    if (loadEl) loadEl.style.display = 'flex';
+    if (imgEl)  imgEl.style.display  = 'none';
+  });
+
+  document.getElementById('btn-reload-charts').disabled = true;
+  document.getElementById('btn-reload-charts').textContent = '⏳ Memuat…';
+
+  try {
+    const res  = await fetch('/report/charts');
+    const json = await res.json();
+
+    if (json.success) {
+      const charts = json.charts;
+
+      const renderChart = (key, imgId, loadId) => {
+        const imgEl  = document.getElementById(imgId);
+        const loadEl = document.getElementById(loadId);
+        if (!imgEl) return;
+        if (charts[key]) {
+          imgEl.src          = `data:image/png;base64,${charts[key]}`;
+          imgEl.style.display= 'block';
+          if (loadEl) loadEl.style.display = 'none';
+        } else {
+          if (loadEl) loadEl.innerHTML = '<p style="font-size:12px; color:var(--text-muted);">Tidak ada data.</p>';
+        }
+      };
+
+      renderChart('overview', 'chart-overview-img', 'chart-overview-loading');
+      renderChart('budget',   'chart-budget-img',   'chart-budget-loading');
+      renderChart('pie',      'chart-pie-img',       'chart-pie-loading');
+      renderChart('bar',      'chart-bar-img',       'chart-bar-loading');
+      renderChart('savings',  'chart-savings-img',  'chart-savings-loading');
+      renderChart('vs',       'chart-vs-img',        'chart-vs-loading');
+    }
+  } catch (e) {
+    console.error('Gagal memuat grafik:', e);
+  }
+
+  document.getElementById('btn-reload-charts').disabled = false;
+  document.getElementById('btn-reload-charts').textContent = '↺ Refresh Grafik';
+}
+
+// Auto-load saat halaman buka (jika ada data)
+{% if has_budget or has_expenses or has_savings %}
+document.addEventListener('DOMContentLoaded', loadCharts);
+{% endif %}
+</script>
+{% endblock %}

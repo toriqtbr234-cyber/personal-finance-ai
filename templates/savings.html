@@ -1,0 +1,964 @@
+{% extends "base.html" %}
+
+{% block title %}Savings & Invest{% endblock %}
+{% block page_title %}Savings & Investment{% endblock %}
+{% block page_subtitle %}Rencanakan tabunganmu dan temukan instrumen investasi yang tepat{% endblock %}
+
+{% block content %}
+
+<!-- ══════ TAB BAR (top-level) ══════════════════════════════════════════ -->
+<div class="page-tab-bar">
+  <button class="page-tab active" id="ptab-savings" onclick="switchPageTab('savings')">
+    ◐ Savings Goal Planner
+  </button>
+  <button class="page-tab" id="ptab-invest" onclick="switchPageTab('invest')">
+    ⬡ Investment Guidance
+  </button>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     PANEL A — SAVINGS GOAL PLANNER
+     ══════════════════════════════════════════════════════════════════════ -->
+<div id="panel-savings">
+<div class="sv-layout">
+
+  <!-- ── Kolom kiri: Form input ──────────────────────────────── -->
+  <div class="sv-form-col">
+    <div class="card">
+      <p class="card-title" style="margin-bottom:20px;">Detail Tujuan Tabungan</p>
+
+      <div class="form-group">
+        <label class="form-label">Nama Tujuan Tabungan</label>
+        <input type="text" id="sv-nama" class="form-control"
+               placeholder="Contoh: DP Rumah, Dana Nikah, Liburan Jepang…" maxlength="80">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Target Dana (Rp)</label>
+        <div class="input-prefix-wrap">
+          <span class="input-prefix">Rp</span>
+          <input type="number" id="sv-target" class="form-control with-prefix"
+                 placeholder="100.000.000" min="0" step="100000">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Dana yang Sudah Dimiliki (Rp)</label>
+        <div class="input-prefix-wrap">
+          <span class="input-prefix">Rp</span>
+          <input type="number" id="sv-awal" class="form-control with-prefix"
+                 placeholder="0 jika belum ada" min="0" step="100000" value="0">
+        </div>
+        <span class="form-hint">Dana awal yang sudah tersimpan saat ini.</span>
+      </div>
+
+      <!-- Durasi slider + manual -->
+      <div class="form-group">
+        <label class="form-label">Durasi Menabung</label>
+        <div class="durasi-row">
+          <input type="range" id="sv-durasi-slider" min="1" max="120"
+                 value="12" oninput="syncDurasi('slider')">
+          <div class="durasi-inputs">
+            <div class="durasi-field">
+              <input type="number" id="sv-durasi-bulan" class="form-control"
+                     value="12" min="1" max="360" oninput="syncDurasi('bulan')">
+              <span class="durasi-lbl">Bulan</span>
+            </div>
+            <span class="durasi-sep">atau</span>
+            <div class="durasi-field">
+              <input type="number" id="sv-durasi-tahun" class="form-control"
+                     value="1" min="1" max="30" step="0.5" oninput="syncDurasi('tahun')">
+              <span class="durasi-lbl">Tahun</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Prioritas -->
+      <div class="form-group">
+        <label class="form-label">Tingkat Prioritas</label>
+        <div class="priority-group">
+          <label class="priority-opt">
+            <input type="radio" name="prioritas" value="rendah">
+            <span class="priority-btn">🟢 Rendah</span>
+          </label>
+          <label class="priority-opt">
+            <input type="radio" name="prioritas" value="sedang" checked>
+            <span class="priority-btn active">🟡 Sedang</span>
+          </label>
+          <label class="priority-opt">
+            <input type="radio" name="prioritas" value="tinggi">
+            <span class="priority-btn">🔴 Tinggi</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- Preview kalkulasi -->
+      <div class="sv-preview" id="sv-preview" style="display:none;">
+        <div class="sv-preview-row">
+          <span>Perlu menabung / bulan:</span>
+          <span class="sv-preview-val" id="sv-prev-bulanan">—</span>
+        </div>
+        <div class="sv-preview-row">
+          <span>Sisa target:</span>
+          <span class="sv-preview-val" id="sv-prev-sisa">—</span>
+        </div>
+        {% if pendapatan %}
+        <div class="sv-preview-row">
+          <span>% dari pendapatanmu:</span>
+          <span class="sv-preview-val" id="sv-prev-pct">—</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="sv-error" id="sv-error" style="display:none;"></div>
+
+      <div style="display:flex; gap:12px; margin-top:22px;">
+        <button class="btn btn-primary" id="sv-btn" onclick="generateSavingsPlan()"
+                style="flex:1; justify-content:center;">
+          <span id="sv-btn-text">✦ Buat Rencana AI</span>
+          <span id="sv-btn-spin" style="display:none;">⏳ Membuat rencana…</span>
+        </button>
+        <button class="btn btn-outline" onclick="resetSavings()">↺</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Kolom kanan: Output rencana ─────────────────────────── -->
+  <div class="sv-output-col" id="sv-output-col">
+
+    <!-- Empty state -->
+    <div class="sv-empty" id="sv-empty">
+      <div style="font-size:44px; opacity:0.2; margin-bottom:16px;">◐</div>
+      <p style="font-family:var(--font-display); font-size:18px; color:var(--text-secondary);">
+        Rencana tabunganmu akan muncul di sini</p>
+      <p style="font-size:13px; color:var(--text-muted); margin-top:8px;">
+        Isi form di kiri, lalu klik <strong>Buat Rencana AI</strong>.</p>
+    </div>
+
+    <!-- Loading -->
+    <div id="sv-loading" style="display:none; text-align:center; padding:80px 0;">
+      <div class="sv-orb"></div>
+      <p style="font-size:14px; color:var(--text-secondary); margin-top:20px;">
+        AI sedang menyusun rencana tabunganmu…</p>
+    </div>
+
+    <!-- Result -->
+    <div id="sv-result" style="display:none;">
+
+      <!-- Header: nama tujuan + feasibility badge -->
+      <div class="sv-result-header">
+        <div>
+          <p class="sv-goal-label" id="sv-res-label">—</p>
+          <h2 class="sv-goal-name"  id="sv-res-nama">—</h2>
+        </div>
+        <div class="feasibility-badge" id="sv-feasibility">—</div>
+      </div>
+
+      <!-- 4 angka utama -->
+      <div class="sv-nums-grid">
+        <div class="sv-num-card sv-num-blue">
+          <p class="sv-num-label">Tabungan / Bulan</p>
+          <p class="sv-num-val" id="svr-bulanan">—</p>
+        </div>
+        <div class="sv-num-card sv-num-gold">
+          <p class="sv-num-label">Total Ditabung</p>
+          <p class="sv-num-val" id="svr-total">—</p>
+        </div>
+        <div class="sv-num-card sv-num-teal">
+          <p class="sv-num-label">Est. Bunga (4%/thn)</p>
+          <p class="sv-num-val" id="svr-bunga">—</p>
+        </div>
+        <div class="sv-num-card sv-num-rose">
+          <p class="sv-num-label">Total + Bunga</p>
+          <p class="sv-num-val" id="svr-total-bunga">—</p>
+        </div>
+      </div>
+
+      <!-- Strategi utama + catatan AI -->
+      <div class="card sv-section">
+        <p class="card-title">✦ Strategi AI</p>
+        <p class="sv-narasi" id="svr-strategi">—</p>
+        <p class="sv-catatan" id="svr-catatan">—</p>
+      </div>
+
+      <!-- Milestone progress -->
+      <div class="card sv-section">
+        <p class="card-title">🎯 Milestone Perjalananmu</p>
+        <div class="milestone-list" id="svr-milestone"></div>
+      </div>
+
+      <!-- 2 kolom: Langkah + Instrumen -->
+      <div class="sv-two-col">
+
+        <div class="card sv-section">
+          <p class="card-title">📋 Langkah-Langkah</p>
+          <ol class="sv-steps" id="svr-langkah"></ol>
+        </div>
+
+        <div class="card sv-section">
+          <p class="card-title">🏦 Instrumen yang Disarankan</p>
+          <div class="instrumen-list" id="svr-instrumen"></div>
+        </div>
+      </div>
+
+      <!-- Tips percepatan -->
+      <div class="card sv-section">
+        <p class="card-title">⚡ Tips Percepatan</p>
+        <ul class="tips-acc" id="svr-tips"></ul>
+      </div>
+
+    </div><!-- /sv-result -->
+  </div><!-- /sv-output-col -->
+</div><!-- /sv-layout -->
+</div><!-- /panel-savings -->
+
+
+<!-- ══════════════════════════════════════════════════════════════════════
+     PANEL B — INVESTMENT GUIDANCE
+     ══════════════════════════════════════════════════════════════════════ -->
+<div id="panel-invest" style="display:none;">
+<div class="inv-layout">
+
+  <!-- ── Kolom kiri: Form profil risiko ──────────────────────── -->
+  <div class="inv-form-col">
+    <div class="card">
+      <p class="card-title" style="margin-bottom:20px;">Profil Investormu</p>
+
+      <!-- Profil Risiko — card selector -->
+      <div class="form-group">
+        <label class="form-label">Profil Risiko</label>
+        <div class="risk-selector">
+          {% for pr in profil_risiko_list %}
+          <label class="risk-card" id="risk-card-{{ pr|lower }}">
+            <input type="radio" name="profil_risiko" value="{{ pr }}"
+                   {% if pr == 'Sedang' %}checked{% endif %}
+                   onchange="updateRiskCard()">
+            <div class="risk-card-inner">
+              <span class="risk-icon">
+                {% if pr == 'Rendah' %}🛡️{% elif pr == 'Sedang' %}⚖️{% else %}🚀{% endif %}
+              </span>
+              <p class="risk-name">{{ pr }}</p>
+              <p class="risk-desc">
+                {% if pr == 'Rendah' %}Utamakan keamanan modal{% elif pr == 'Sedang' %}Seimbangkan pertumbuhan & risiko{% else %}Kejar return maksimal{% endif %}
+              </p>
+            </div>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Dana yang Siap Diinvestasikan (Rp)</label>
+        <div class="input-prefix-wrap">
+          <span class="input-prefix">Rp</span>
+          <input type="number" id="inv-dana" class="form-control with-prefix"
+                 placeholder="1.000.000" min="0" step="100000">
+        </div>
+        <span class="form-hint">Isi 0 jika belum tahu nominalnya.</span>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Usiamu (tahun) — opsional</label>
+        <input type="number" id="inv-usia" class="form-control"
+               placeholder="25" min="17" max="80">
+        <span class="form-hint">Membantu AI menyesuaikan horizon investasi.</span>
+      </div>
+
+      <div class="inv-error" id="inv-error" style="display:none;"></div>
+
+      <div style="display:flex; gap:12px; margin-top:22px;">
+        <button class="btn btn-primary" id="inv-btn" onclick="generateInvestment()"
+                style="flex:1; justify-content:center;">
+          <span id="inv-btn-text">✦ Tampilkan Panduan</span>
+          <span id="inv-btn-spin" style="display:none;">⏳ Menganalisis…</span>
+        </button>
+        <button class="btn btn-outline" onclick="resetInvest()">↺</button>
+      </div>
+    </div>
+
+    <!-- Kuis profil risiko ringkas -->
+    <div class="card quiz-card">
+      <p class="card-title" style="margin-bottom:12px;">💡 Belum yakin profil risikomu?</p>
+      <p style="font-size:12px; color:var(--text-muted); line-height:1.6;">
+        Pilih berdasarkan kondisimu:<br><br>
+        <strong style="color:var(--accent-teal)">🛡️ Rendah</strong> — Dana darurat atau tabungan &lt; 3 tahun, tidak tahan melihat nilai turun.<br><br>
+        <strong style="color:var(--accent-gold)">⚖️ Sedang</strong> — Investasi 3–7 tahun, oke jika nilai naik-turun sementara.<br><br>
+        <strong style="color:var(--accent-rose)">🚀 Tinggi</strong> — Investasi &gt; 7 tahun, siap hadapi volatilitas besar demi return maksimal.
+      </p>
+    </div>
+  </div>
+
+  <!-- ── Kolom kanan: Output panduan ─────────────────────────── -->
+  <div class="inv-output-col">
+
+    <!-- Empty state -->
+    <div class="inv-empty" id="inv-empty">
+      <div style="font-size:44px; opacity:0.2; margin-bottom:16px;">⬡</div>
+      <p style="font-family:var(--font-display); font-size:18px; color:var(--text-secondary);">
+        Panduan investasimu akan muncul di sini</p>
+      <p style="font-size:13px; color:var(--text-muted); margin-top:8px;">
+        Pilih profil risiko di kiri, lalu klik <strong>Tampilkan Panduan</strong>.</p>
+    </div>
+
+    <!-- Loading -->
+    <div id="inv-loading" style="display:none; text-align:center; padding:80px 0;">
+      <div class="sv-orb"></div>
+      <p style="font-size:14px; color:var(--text-secondary); margin-top:20px;">
+        AI sedang menyiapkan panduan investasimu…</p>
+    </div>
+
+    <!-- Result -->
+    <div id="inv-result" style="display:none;">
+
+      <!-- Header profil -->
+      <div class="inv-result-header" id="inv-res-header">
+        <div>
+          <p class="sv-goal-label">Panduan Investasi untuk Profil</p>
+          <h2 class="sv-goal-name" id="inv-res-profil">—</h2>
+        </div>
+        <div class="inv-horizon-badge" id="inv-horizon">—</div>
+      </div>
+
+      <!-- Deskripsi profil -->
+      <div class="card sv-section">
+        <p class="card-title">✦ Tentang Profil Investormu</p>
+        <p class="sv-narasi" id="inv-deskripsi">—</p>
+        <p style="font-size:12px; color:var(--text-muted); margin-top:12px;"
+           id="inv-strategi-masuk">—</p>
+      </div>
+
+      <!-- Alokasi aset (visual bar) -->
+      <div class="card sv-section">
+        <p class="card-title">📊 Alokasi Aset yang Disarankan</p>
+        <div id="inv-alokasi-bars"></div>
+      </div>
+
+      <!-- Instrumen investasi -->
+      <div class="card sv-section">
+        <p class="card-title">🏦 Instrumen Investasi Pilihan</p>
+        <div class="inv-instrumen-grid" id="inv-instrumen-grid"></div>
+      </div>
+
+      <!-- 2 kolom: Langkah mulai + Risiko -->
+      <div class="sv-two-col">
+        <div class="card sv-section">
+          <p class="card-title">🚀 Langkah Mulai Minggu Ini</p>
+          <ol class="sv-steps" id="inv-langkah"></ol>
+        </div>
+        <div class="card sv-section">
+          <p class="card-title">⚠️ Risiko yang Perlu Diwaspadai</p>
+          <ul class="risiko-list" id="inv-risiko"></ul>
+        </div>
+      </div>
+
+      <!-- Disclaimer -->
+      <div class="disclaimer-box" id="inv-disclaimer"></div>
+
+    </div><!-- /inv-result -->
+  </div>
+</div>
+</div><!-- /panel-invest -->
+
+{% endblock %}
+
+
+{% block scripts %}
+<style>
+/* ══ Page tab bar ════════════════════════════════════════ */
+.page-tab-bar {
+  display: flex; gap: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 6px;
+  margin-bottom: 28px;
+  width: fit-content;
+}
+.page-tab {
+  padding: 10px 26px;
+  border-radius: var(--radius-sm);
+  border: none; background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-body); font-size: 14px; font-weight: 500;
+  cursor: pointer; transition: all 0.18s;
+}
+.page-tab.active {
+  background: var(--accent-gold);
+  color: #0a0c0f; font-weight: 600;
+}
+
+/* ══ Savings layout ══════════════════════════════════════ */
+.sv-layout {
+  display: grid;
+  grid-template-columns: 360px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+
+/* ── Input helpers ──────────────────────────────────────── */
+.input-prefix-wrap { position: relative; }
+.input-prefix {
+  position: absolute; left:14px; top:50%;
+  transform: translateY(-50%);
+  font-size:13px; color:var(--text-muted);
+  font-family:var(--font-mono); pointer-events:none;
+}
+.form-control.with-prefix { padding-left: 38px; }
+.form-hint { font-size:11px; color:var(--text-muted); margin-top:4px; }
+
+/* ── Durasi slider ──────────────────────────────────────── */
+.durasi-row { display:flex; flex-direction:column; gap:10px; }
+.durasi-inputs { display:flex; align-items:center; gap:10px; }
+.durasi-field { display:flex; align-items:center; gap:6px; }
+.durasi-field .form-control { width:80px; text-align:center; }
+.durasi-lbl { font-size:12px; color:var(--text-muted); white-space:nowrap; }
+.durasi-sep { font-size:12px; color:var(--text-muted); }
+input[type="range"] {
+  width:100%; accent-color: var(--accent-gold);
+  height:4px; cursor:pointer;
+}
+
+/* ── Priority radio ─────────────────────────────────────── */
+.priority-group { display:flex; gap:8px; }
+.priority-opt { flex:1; cursor:pointer; }
+.priority-opt input { display:none; }
+.priority-btn {
+  display:block; text-align:center;
+  padding:9px 6px; border-radius:var(--radius-sm);
+  border:1px solid var(--border);
+  font-size:12px; color:var(--text-muted);
+  transition:all 0.15s; background:var(--bg-base);
+}
+.priority-opt input:checked + .priority-btn {
+  border-color:var(--accent-gold);
+  color:var(--accent-gold);
+  background:rgba(201,168,76,0.1);
+}
+
+/* ── Preview box ────────────────────────────────────────── */
+.sv-preview {
+  background:rgba(45,212,191,0.07);
+  border:1px solid rgba(45,212,191,0.2);
+  border-radius:var(--radius-sm);
+  padding:14px 16px;
+  margin-top:18px;
+  display:flex; flex-direction:column; gap:8px;
+}
+.sv-preview-row {
+  display:flex; justify-content:space-between;
+  font-size:13px; color:var(--text-secondary);
+}
+.sv-preview-val {
+  font-family:var(--font-mono); font-weight:600;
+  color:var(--accent-teal);
+}
+
+/* ── Error box ──────────────────────────────────────────── */
+.sv-error, .inv-error {
+  background:rgba(251,113,133,0.1); border:1px solid rgba(251,113,133,0.3);
+  border-radius:var(--radius-sm); color:var(--accent-rose);
+  font-size:12px; padding:10px 14px; margin-top:14px;
+}
+
+/* ── Loading orb ────────────────────────────────────────── */
+.sv-orb {
+  width:44px; height:44px; margin:0 auto;
+  border-radius:50%; border:2px solid var(--border);
+  border-top-color:var(--accent-gold);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* ── Empty states ───────────────────────────────────────── */
+.sv-empty, .inv-empty {
+  text-align:center; padding:80px 40px;
+  border:1px dashed var(--border); border-radius:var(--radius-lg);
+}
+
+/* ══ Savings result ══════════════════════════════════════ */
+.sv-result-header {
+  display:flex; justify-content:space-between; align-items:flex-start;
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:var(--radius-md); padding:20px 24px; margin-bottom:20px;
+}
+.sv-goal-label {
+  font-size:10px; font-family:var(--font-mono);
+  letter-spacing:0.1em; text-transform:uppercase;
+  color:var(--text-muted); margin-bottom:6px;
+}
+.sv-goal-name {
+  font-family:var(--font-display); font-size:22px;
+  color:var(--text-primary);
+}
+.feasibility-badge {
+  padding:7px 16px; border-radius:20px;
+  font-size:12px; font-family:var(--font-mono); font-weight:600;
+  letter-spacing:0.06em; text-transform:uppercase; white-space:nowrap;
+}
+.feas-mudah     { background:rgba(45,212,191,0.15); color:var(--accent-teal); border:1px solid rgba(45,212,191,0.3); }
+.feas-menantang { background:rgba(201,168,76,0.15); color:var(--accent-gold); border:1px solid rgba(201,168,76,0.3); }
+.feas-berat     { background:rgba(251,113,133,0.15); color:var(--accent-rose); border:1px solid rgba(251,113,133,0.3); }
+
+.sv-nums-grid {
+  display:grid; grid-template-columns:repeat(4,1fr); gap:14px; margin-bottom:20px;
+}
+.sv-num-card {
+  padding:16px; border-radius:var(--radius-md);
+  border:1px solid var(--border); background:var(--bg-card);
+}
+.sv-num-card.sv-num-blue  { border-top:3px solid var(--accent-blue); }
+.sv-num-card.sv-num-gold  { border-top:3px solid var(--accent-gold); }
+.sv-num-card.sv-num-teal  { border-top:3px solid var(--accent-teal); }
+.sv-num-card.sv-num-rose  { border-top:3px solid var(--accent-rose); }
+.sv-num-label {
+  font-size:10px; font-family:var(--font-mono);
+  letter-spacing:0.08em; text-transform:uppercase;
+  color:var(--text-muted); margin-bottom:8px;
+}
+.sv-num-val {
+  font-family:var(--font-display); font-size:17px; color:var(--text-primary);
+}
+
+.sv-section { margin-bottom:16px; }
+.sv-narasi { font-size:14px; color:var(--text-secondary); line-height:1.75; margin-top:10px; }
+.sv-catatan {
+  font-size:13px; color:var(--accent-gold); font-style:italic;
+  margin-top:10px; padding-top:10px; border-top:1px solid var(--border);
+}
+
+/* Milestone */
+.milestone-list { display:flex; flex-direction:column; gap:12px; margin-top:14px; }
+.milestone-item { display:flex; align-items:center; gap:14px; }
+.milestone-pct {
+  font-family:var(--font-mono); font-size:12px; font-weight:600;
+  color:var(--accent-gold); width:36px; text-align:right; flex-shrink:0;
+}
+.milestone-bar-wrap { flex:1; background:var(--bg-hover); border-radius:4px; height:8px; overflow:hidden; }
+.milestone-bar { height:100%; border-radius:4px; background:var(--accent-gold); transition:width 1s cubic-bezier(.4,0,.2,1); }
+.milestone-info { width:140px; flex-shrink:0; }
+.milestone-fase { font-size:12px; font-weight:600; color:var(--text-primary); }
+.milestone-desc { font-size:11px; color:var(--text-muted); margin-top:2px; }
+
+/* Instrumen card (savings) */
+.instrumen-list { display:flex; flex-direction:column; gap:10px; margin-top:12px; }
+.instrumen-item {
+  background:var(--bg-base); border:1px solid var(--border);
+  border-radius:var(--radius-sm); padding:12px 14px;
+}
+.instrumen-top { display:flex; justify-content:space-between; align-items:center; }
+.instrumen-nama { font-size:13px; font-weight:600; color:var(--text-primary); }
+.instrumen-return {
+  font-family:var(--font-mono); font-size:12px; color:var(--accent-teal);
+  background:rgba(45,212,191,0.1); padding:2px 8px; border-radius:10px;
+}
+.instrumen-alasan { font-size:12px; color:var(--text-muted); margin-top:4px; }
+
+.sv-steps {
+  margin-top:12px; margin-left:18px;
+  display:flex; flex-direction:column; gap:8px;
+}
+.sv-steps li { font-size:13px; color:var(--text-secondary); line-height:1.55; }
+
+.tips-acc { list-style:none; display:flex; flex-direction:column; gap:8px; margin-top:12px; }
+.tips-acc li {
+  font-size:13px; color:var(--text-secondary); padding:9px 13px;
+  background:var(--bg-base); border-radius:var(--radius-sm);
+  border-left:3px solid var(--accent-gold); line-height:1.5;
+}
+.sv-two-col { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+
+/* ══ Investment layout ═══════════════════════════════════ */
+.inv-layout {
+  display:grid; grid-template-columns:300px 1fr; gap:24px; align-items:start;
+}
+.risk-selector {
+  display:flex; flex-direction:column; gap:8px; margin-top:4px;
+}
+.risk-card { cursor:pointer; }
+.risk-card input { display:none; }
+.risk-card-inner {
+  display:flex; align-items:center; gap:14px;
+  padding:12px 16px; border-radius:var(--radius-sm);
+  border:1px solid var(--border); background:var(--bg-base);
+  transition:all 0.18s;
+}
+.risk-card input:checked ~ .risk-card-inner,
+.risk-card:has(input:checked) .risk-card-inner {
+  border-color:var(--accent-gold);
+  background:rgba(201,168,76,0.08);
+}
+.risk-icon { font-size:22px; }
+.risk-name { font-size:14px; font-weight:600; color:var(--text-primary); }
+.risk-desc { font-size:11px; color:var(--text-muted); margin-top:2px; }
+
+.quiz-card { background:rgba(96,165,250,0.04); border-color:rgba(96,165,250,0.15); }
+
+/* Investment result */
+.inv-result-header {
+  display:flex; justify-content:space-between; align-items:flex-start;
+  background:var(--bg-card); border:1px solid var(--border);
+  border-radius:var(--radius-md); padding:20px 24px; margin-bottom:20px;
+}
+.inv-horizon-badge {
+  padding:7px 16px; border-radius:20px; font-size:12px;
+  font-family:var(--font-mono); color:var(--accent-blue);
+  background:rgba(96,165,250,0.1); border:1px solid rgba(96,165,250,0.25);
+  white-space:nowrap;
+}
+
+/* Alokasi bars */
+.alloc-bar-row { margin-bottom:14px; }
+.alloc-bar-header { display:flex; justify-content:space-between; margin-bottom:6px; }
+.alloc-bar-name { font-size:13px; color:var(--text-secondary); }
+.alloc-bar-pct  { font-family:var(--font-mono); font-size:12px; color:var(--text-muted); }
+.alloc-bar-bg   { background:var(--bg-hover); height:8px; border-radius:4px; overflow:hidden; }
+.alloc-bar-fill { height:100%; border-radius:4px; transition:width 1s cubic-bezier(.4,0,.2,1); }
+.alloc-bar-note { font-size:11px; color:var(--text-muted); margin-top:4px; }
+
+/* Instrumen grid (investment) */
+.inv-instrumen-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-top:14px; }
+.inv-instr-card {
+  background:var(--bg-base); border:1px solid var(--border);
+  border-radius:var(--radius-sm); padding:14px;
+}
+.inv-instr-nama   { font-size:13px; font-weight:600; color:var(--text-primary); margin-bottom:4px; }
+.inv-instr-contoh { font-size:11px; color:var(--accent-gold); margin-bottom:6px; }
+.inv-instr-row    { display:flex; justify-content:space-between; margin-top:6px; }
+.inv-instr-key    { font-size:11px; color:var(--text-muted); }
+.inv-instr-val    { font-size:11px; font-family:var(--font-mono); color:var(--text-secondary); }
+.inv-instr-cocok  { font-size:11px; color:var(--text-muted); margin-top:6px; line-height:1.4; border-top:1px solid var(--border); padding-top:6px; }
+
+.risiko-list { list-style:none; display:flex; flex-direction:column; gap:8px; margin-top:12px; }
+.risiko-list li {
+  font-size:13px; color:var(--text-secondary); padding:9px 13px;
+  background:rgba(251,113,133,0.06); border-radius:var(--radius-sm);
+  border-left:3px solid var(--accent-rose); line-height:1.5;
+}
+
+.disclaimer-box {
+  background:rgba(96,165,250,0.07); border:1px solid rgba(96,165,250,0.2);
+  border-radius:var(--radius-sm); padding:12px 16px; margin-top:8px;
+  font-size:12px; color:var(--text-muted); line-height:1.6;
+}
+</style>
+
+<script>
+const fmt = n => new Intl.NumberFormat('id-ID', {
+  style:'currency', currency:'IDR', minimumFractionDigits:0
+}).format(n);
+const pendapatan = {{ pendapatan | float }};
+
+// ── Tab switching ──────────────────────────────────────────────────
+function switchPageTab(tab) {
+  document.getElementById('panel-savings').style.display = tab === 'savings' ? 'block' : 'none';
+  document.getElementById('panel-invest').style.display  = tab === 'invest'  ? 'block' : 'none';
+  document.getElementById('ptab-savings').classList.toggle('active', tab === 'savings');
+  document.getElementById('ptab-invest').classList.toggle('active', tab === 'invest');
+
+  // Jika ada hash #investment di URL, langsung ke tab invest
+  if (window.location.hash === '#investment') switchPageTab('invest');
+}
+
+// ── Durasi sync (slider ↔ bulan ↔ tahun) ──────────────────────────
+function syncDurasi(src) {
+  let bulan;
+  if (src === 'slider') {
+    bulan = parseInt(document.getElementById('sv-durasi-slider').value);
+  } else if (src === 'bulan') {
+    bulan = parseInt(document.getElementById('sv-durasi-bulan').value) || 1;
+  } else {
+    bulan = Math.round(parseFloat(document.getElementById('sv-durasi-tahun').value) * 12) || 12;
+  }
+  bulan = Math.max(1, Math.min(360, bulan));
+  document.getElementById('sv-durasi-slider').value  = Math.min(bulan, 120);
+  document.getElementById('sv-durasi-bulan').value   = bulan;
+  document.getElementById('sv-durasi-tahun').value   = +(bulan / 12).toFixed(1);
+  updateSvPreview();
+}
+
+// ── Preview real-time ──────────────────────────────────────────────
+['sv-target','sv-awal','sv-durasi-bulan'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', updateSvPreview);
+});
+
+function updateSvPreview() {
+  const target = parseFloat(document.getElementById('sv-target').value) || 0;
+  const awal   = parseFloat(document.getElementById('sv-awal').value)   || 0;
+  const bulan  = parseInt(document.getElementById('sv-durasi-bulan').value) || 1;
+  const sisa   = Math.max(target - awal, 0);
+  const per_bln = sisa / bulan;
+
+  const wrap = document.getElementById('sv-preview');
+  if (target > 0) {
+    wrap.style.display = 'flex';
+    document.getElementById('sv-prev-bulanan').textContent = fmt(per_bln);
+    document.getElementById('sv-prev-sisa').textContent    = fmt(sisa);
+    const pctEl = document.getElementById('sv-prev-pct');
+    if (pctEl && pendapatan > 0) {
+      pctEl.textContent = (per_bln / pendapatan * 100).toFixed(1) + '%';
+    }
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+// ── Risk card visual update ────────────────────────────────────────
+function updateRiskCard() { /* CSS :has() handles styling */ }
+
+// ── Init ───────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.location.hash === '#investment') switchPageTab('invest');
+
+  // Priority radio styling
+  document.querySelectorAll('input[name="prioritas"]').forEach(radio => {
+    radio.addEventListener('change', () => {
+      document.querySelectorAll('.priority-btn').forEach(b => b.classList.remove('active'));
+      radio.nextElementSibling.classList.add('active');
+    });
+  });
+
+  // Restore hasil jika sudah ada di session
+  {% if savings_plan %}
+  renderSavingsPlan({{ savings_plan | tojson }});
+  {% endif %}
+  {% if invest_guidance %}
+  renderInvestmentGuidance({{ invest_guidance | tojson }});
+  {% endif %}
+});
+
+// ════════════════════════════════════════════════════════
+// SAVINGS PLAN
+// ════════════════════════════════════════════════════════
+async function generateSavingsPlan() {
+  const nama   = document.getElementById('sv-nama').value.trim();
+  const target = parseFloat(document.getElementById('sv-target').value) || 0;
+  const awal   = parseFloat(document.getElementById('sv-awal').value)   || 0;
+  const bulan  = parseInt(document.getElementById('sv-durasi-bulan').value) || 12;
+  const prio   = document.querySelector('input[name="prioritas"]:checked')?.value || 'sedang';
+  const errEl  = document.getElementById('sv-error');
+  errEl.style.display = 'none';
+
+  if (!nama)   return showErr('sv-error', 'Nama tujuan tidak boleh kosong.');
+  if (!target) return showErr('sv-error', 'Target jumlah harus lebih dari 0.');
+  if (awal >= target) return showErr('sv-error', 'Dana awal sudah melebihi target.');
+
+  setLoading('sv', true);
+
+  try {
+    const res  = await fetch('/savings/plan', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ nama_tujuan:nama, target_jumlah:target,
+                             durasi_bulan:bulan, tabungan_awal:awal, prioritas:prio })
+    });
+    const json = await res.json();
+    if (json.success) {
+      renderSavingsPlan(json.data);
+    } else {
+      showErr('sv-error', json.error || 'Terjadi kesalahan.');
+      setLoading('sv', false);
+    }
+  } catch {
+    showErr('sv-error', 'Gagal terhubung ke server.');
+    setLoading('sv', false);
+  }
+}
+
+function renderSavingsPlan(d) {
+  setLoading('sv', false);
+  document.getElementById('sv-empty').style.display  = 'none';
+  document.getElementById('sv-result').style.display = 'block';
+
+  document.getElementById('sv-res-label').textContent = 'Tujuan Tabungan';
+  document.getElementById('sv-res-nama').textContent  = d.nama_tujuan || '—';
+
+  // Feasibility badge
+  const fb = document.getElementById('sv-feasibility');
+  const fmap = { mudah:'feas-mudah', menantang:'feas-menantang', berat:'feas-berat' };
+  const flabel = { mudah:'✓ Mudah Dicapai', menantang:'⚡ Menantang', berat:'⚠ Cukup Berat' };
+  fb.className = `feasibility-badge ${fmap[d.feasibility] || 'feas-menantang'}`;
+  fb.textContent = flabel[d.feasibility] || d.feasibility;
+
+  // Angka utama
+  document.getElementById('svr-bulanan').textContent     = fmt(d.tabungan_per_bulan);
+  document.getElementById('svr-total').textContent       = fmt(d.total_ditabung);
+  document.getElementById('svr-bunga').textContent       = fmt(d.bunga_estimasi);
+  document.getElementById('svr-total-bunga').textContent = fmt(d.total_dengan_bunga);
+
+  // Strategi + catatan
+  document.getElementById('svr-strategi').textContent = d.strategi_utama || '';
+  document.getElementById('svr-catatan').textContent  = d.catatan_ai || '';
+
+  // Milestone
+  const mlEl = document.getElementById('svr-milestone');
+  mlEl.innerHTML = '';
+  (d.milestone || []).forEach(m => {
+    mlEl.innerHTML += `
+      <div class="milestone-item">
+        <span class="milestone-pct">${m.target_persen}%</span>
+        <div class="milestone-bar-wrap">
+          <div class="milestone-bar" style="width:0%" data-w="${m.target_persen}"></div>
+        </div>
+        <div class="milestone-info">
+          <p class="milestone-fase">${m.fase}</p>
+          <p class="milestone-desc">${m.deskripsi}</p>
+        </div>
+      </div>`;
+  });
+  setTimeout(() => {
+    mlEl.querySelectorAll('.milestone-bar').forEach(b => {
+      b.style.width = b.dataset.w + '%';
+    });
+  }, 150);
+
+  // Langkah
+  const lEl = document.getElementById('svr-langkah');
+  lEl.innerHTML = (d.langkah_langkah || []).map(l => `<li>${l}</li>`).join('');
+
+  // Instrumen
+  const iEl = document.getElementById('svr-instrumen');
+  iEl.innerHTML = (d.instrumen_saran || []).map(ins => `
+    <div class="instrumen-item">
+      <div class="instrumen-top">
+        <span class="instrumen-nama">${ins.nama}</span>
+        <span class="instrumen-return">${ins.estimasi_return}</span>
+      </div>
+      <p class="instrumen-alasan">${ins.alasan}</p>
+    </div>`).join('');
+
+  // Tips percepatan
+  const tEl = document.getElementById('svr-tips');
+  tEl.innerHTML = (d.tips_percepatan || []).map(t => `<li>${t}</li>`).join('');
+}
+
+function resetSavings() {
+  document.getElementById('sv-nama').value  = '';
+  document.getElementById('sv-target').value = '';
+  document.getElementById('sv-awal').value   = '0';
+  document.getElementById('sv-preview').style.display = 'none';
+  document.getElementById('sv-result').style.display  = 'none';
+  document.getElementById('sv-empty').style.display   = 'flex';
+  document.getElementById('sv-error').style.display   = 'none';
+  fetch('/savings/reset', { method:'POST' });
+}
+
+// ════════════════════════════════════════════════════════
+// INVESTMENT GUIDANCE
+// ════════════════════════════════════════════════════════
+async function generateInvestment() {
+  const profil = document.querySelector('input[name="profil_risiko"]:checked')?.value || 'Sedang';
+  const dana   = parseFloat(document.getElementById('inv-dana').value)  || 0;
+  const usia   = parseInt(document.getElementById('inv-usia').value)    || 0;
+  document.getElementById('inv-error').style.display = 'none';
+
+  setLoading('inv', true);
+
+  try {
+    const res  = await fetch('/savings/invest', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ profil_risiko:profil, dana, usia })
+    });
+    const json = await res.json();
+    if (json.success) {
+      renderInvestmentGuidance(json.data);
+    } else {
+      showErr('inv-error', json.error || 'Terjadi kesalahan.');
+      setLoading('inv', false);
+    }
+  } catch {
+    showErr('inv-error', 'Gagal terhubung ke server.');
+    setLoading('inv', false);
+  }
+}
+
+function renderInvestmentGuidance(d) {
+  setLoading('inv', false);
+  document.getElementById('inv-empty').style.display  = 'none';
+  document.getElementById('inv-result').style.display = 'block';
+
+  document.getElementById('inv-res-profil').textContent   = `Profil ${d.profil || '—'}`;
+  document.getElementById('inv-horizon').textContent      = d.waktu_ideal || '—';
+  document.getElementById('inv-deskripsi').textContent    = d.deskripsi_profil || '';
+  document.getElementById('inv-strategi-masuk').textContent = d.strategi_masuk || '';
+
+  // Alokasi bars
+  const aEl = document.getElementById('inv-alokasi-bars');
+  aEl.innerHTML = '';
+  (d.alokasi || []).forEach(a => {
+    aEl.innerHTML += `
+      <div class="alloc-bar-row">
+        <div class="alloc-bar-header">
+          <span class="alloc-bar-name">${a.aset}</span>
+          <span class="alloc-bar-pct">${a.persen}%</span>
+        </div>
+        <div class="alloc-bar-bg">
+          <div class="alloc-bar-fill" style="width:0%; background:${a.warna || '#c9a84c'}"
+               data-w="${a.persen}"></div>
+        </div>
+        <p class="alloc-bar-note">${a.keterangan}</p>
+      </div>`;
+  });
+  setTimeout(() => {
+    aEl.querySelectorAll('.alloc-bar-fill').forEach(b => {
+      b.style.width = b.dataset.w + '%';
+    });
+  }, 150);
+
+  // Instrumen grid
+  const igEl = document.getElementById('inv-instrumen-grid');
+  igEl.innerHTML = (d.instrumen || []).map(ins => `
+    <div class="inv-instr-card">
+      <p class="inv-instr-nama">${ins.nama}</p>
+      <p class="inv-instr-contoh">Contoh: ${ins.contoh_produk}</p>
+      <div class="inv-instr-row">
+        <span class="inv-instr-key">Return/thn</span>
+        <span class="inv-instr-val">${ins.estimasi_return}</span>
+      </div>
+      <div class="inv-instr-row">
+        <span class="inv-instr-key">Min. Investasi</span>
+        <span class="inv-instr-val">${ins.min_investasi}</span>
+      </div>
+      <div class="inv-instr-row">
+        <span class="inv-instr-key">Platform</span>
+        <span class="inv-instr-val">${ins.platform}</span>
+      </div>
+      <p class="inv-instr-cocok">${ins.cocok_untuk}</p>
+    </div>`).join('');
+
+  // Langkah mulai
+  document.getElementById('inv-langkah').innerHTML =
+    (d.langkah_mulai || []).map(l => `<li>${l}</li>`).join('');
+
+  // Risiko
+  document.getElementById('inv-risiko').innerHTML =
+    (d.risiko_utama || []).map(r => `<li>${r}</li>`).join('');
+
+  // Disclaimer
+  document.getElementById('inv-disclaimer').textContent = d.catatan_penting || '';
+}
+
+function resetInvest() {
+  document.getElementById('inv-dana').value = '';
+  document.getElementById('inv-usia').value = '';
+  document.getElementById('inv-result').style.display = 'none';
+  document.getElementById('inv-empty').style.display  = 'flex';
+  document.getElementById('inv-error').style.display  = 'none';
+}
+
+// ── Shared helpers ─────────────────────────────────────────────────
+function setLoading(scope, on) {
+  document.getElementById(`${scope}-loading`).style.display = on ? 'block' : 'none';
+  document.getElementById(`${scope}-empty`).style.display   = on ? 'none' : (
+    document.getElementById(`${scope}-result`).style.display === 'block' ? 'none' : 'flex'
+  );
+  document.getElementById(`${scope}-btn-text`).style.display = on ? 'none' : 'inline';
+  document.getElementById(`${scope}-btn-spin`).style.display = on ? 'inline' : 'none';
+  document.getElementById(`${scope}-btn`).disabled           = on;
+}
+function showErr(id, msg) {
+  const el = document.getElementById(id);
+  el.textContent = '⚠ ' + msg;
+  el.style.display = 'block';
+}
+</script>
+{% endblock %}

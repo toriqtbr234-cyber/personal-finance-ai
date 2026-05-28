@@ -1,0 +1,141 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+{% block page_subtitle %}Ringkasan keuangan pribadi kamu{% endblock %}
+
+{% block content %}
+
+<!-- ── Stat Cards ───────────────────────────────────────────────── -->
+{% set b = budget.get('input', {}) %}
+{% set o = budget.get('output', {}) %}
+{% set alloc = o.get('alokasi', {}) %}
+<div class="grid-4" style="margin-bottom:32px;">
+  <div class="card">
+    <p class="card-title">Pendapatan Bulan Ini</p>
+    <p class="card-value accent-teal">
+      {% if b.pendapatan %}
+        Rp {{ "{:,.0f}".format(b.pendapatan) }}
+      {% else %}Rp 0{% endif %}
+    </p>
+    <p class="card-delta">{% if b.kota %}Kota: {{ b.kota }}{% else %}Belum ada data{% endif %}</p>
+  </div>
+  <div class="card">
+    <p class="card-title">Total Pengeluaran</p>
+    <p class="card-value accent-rose">
+      {% if total_expense %}
+        Rp {{ "{:,.0f}".format(total_expense) }}
+      {% else %}Rp 0{% endif %}
+    </p>
+    <p class="card-delta">
+      {% if expense_count %}{{ expense_count }} transaksi tercatat{% else %}Wajib + harian{% endif %}
+    </p>
+  </div>
+  <div class="card">
+    <p class="card-title">Alokasi Tabungan (AI)</p>
+    <p class="card-value accent-gold">
+      {% if alloc.tabungan %}
+        Rp {{ "{:,.0f}".format(alloc.tabungan) }}
+      {% else %}Rp 0{% endif %}
+    </p>
+    <p class="card-delta">
+      {% if o.persen %}{{ o.persen.tabungan }}% dari pendapatan{% else %}Belum dianalisis{% endif %}
+    </p>
+  </div>
+  <div class="card">
+    <p class="card-title">Status Keuangan</p>
+    <p class="card-value {% if o.status == 'sehat' %}accent-teal{% elif o.status == 'kritis' %}accent-rose{% else %}accent-gold{% endif %}">
+      {% if o.status %}{{ o.status | capitalize }}{% else %}—{% endif %}
+    </p>
+    <p class="card-delta">{% if o.ringkasan %}{{ o.ringkasan[:60] }}…{% else %}Belum ada analisis{% endif %}</p>
+  </div>
+</div>
+
+<!-- ── Quick Actions ────────────────────────────────────────────── -->
+<p class="section-title">Mulai dari sini</p>
+<div class="grid-3" style="margin-bottom:32px;">
+
+  <a href="{{ url_for('budget') }}" class="card quickaction-card">
+    <div class="qa-icon">◎</div>
+    <h3 class="qa-title">Budget Planner</h3>
+    <p class="qa-desc">Atur pendapatan &amp; anggaran bulanan kamu, dapatkan rekomendasi alokasi dari AI.</p>
+    <span class="qa-link">Mulai →</span>
+  </a>
+
+  <a href="{{ url_for('expenses') }}" class="card quickaction-card">
+    <div class="qa-icon">◑</div>
+    <h3 class="qa-title">Expense Analyzer</h3>
+    <p class="qa-desc">Input pengeluaran harian atau unggah CSV, lalu dapatkan analisis mendalam dari AI.</p>
+    <span class="qa-link">Mulai →</span>
+  </a>
+
+  <a href="{{ url_for('chatbot') }}" class="card quickaction-card">
+    <div class="qa-icon">◈</div>
+    <h3 class="qa-title">AI Financial Advisor</h3>
+    <p class="qa-desc">Tanya apa saja soal keuangan ke asisten AI berbasis Gemini secara real-time.</p>
+    <span class="qa-link">Mulai →</span>
+  </a>
+
+  <a href="{{ url_for('savings') }}" class="card quickaction-card">
+    <div class="qa-icon">◐</div>
+    <h3 class="qa-title">Savings Goal</h3>
+    <p class="qa-desc">Tentukan target tabungan dan biarkan AI buatkan rencana bulanan untukmu.</p>
+    <span class="qa-link">Mulai →</span>
+  </a>
+
+  <a href="{{ url_for('savings') }}#investment" class="card quickaction-card">
+    <div class="qa-icon">⬡</div>
+    <h3 class="qa-title">Investment Guide</h3>
+    <p class="qa-desc">Panduan investasi dasar disesuaikan profil risiko: rendah, sedang, atau tinggi.</p>
+    <span class="qa-link">Mulai →</span>
+  </a>
+
+  <a href="{{ url_for('report') }}" class="card quickaction-card">
+    <div class="qa-icon">▣</div>
+    <h3 class="qa-title">Laporan & Grafik</h3>
+    <p class="qa-desc">Visualisasi pengeluaran &amp; anggaran, unduh laporan PDF ringkasan keuanganmu.</p>
+    <span class="qa-link">Mulai →</span>
+  </a>
+
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<style>
+.quickaction-card {
+  display: block;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.quickaction-card:hover {
+  border-color: var(--accent-gold);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-glow);
+}
+.qa-icon {
+  font-size: 26px;
+  color: var(--accent-gold);
+  margin-bottom: 12px;
+  opacity: 0.85;
+}
+.qa-title {
+  font-family: var(--font-display);
+  font-size: 17px;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+.qa-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.55;
+  margin-bottom: 16px;
+}
+.qa-link {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-gold);
+  letter-spacing: 0.04em;
+}
+</style>
+{% endblock %}

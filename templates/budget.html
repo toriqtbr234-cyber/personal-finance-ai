@@ -1,0 +1,463 @@
+{% extends "base.html" %}
+
+{% block title %}Budget Planner{% endblock %}
+{% block page_title %}Budget Planner{% endblock %}
+{% block page_subtitle %}Masukkan data keuanganmu, biarkan AI merancang alokasi terbaik{% endblock %}
+
+{% block content %}
+
+<!-- ══════════════════════════════════════════════════════════
+     SECTION A — FORM INPUT
+     ══════════════════════════════════════════════════════════ -->
+<div class="budget-layout">
+
+  <!-- ── Kolom Kiri: Form ───────────────────────────────────── -->
+  <div class="budget-form-col">
+    <div class="card">
+      <p class="card-title" style="margin-bottom:22px;">Data Keuangan Bulanan</p>
+
+      <!-- Pendapatan -->
+      <div class="form-group">
+        <label class="form-label">Pendapatan Bersih per Bulan (Rp)</label>
+        <div class="input-prefix-wrap">
+          <span class="input-prefix">Rp</span>
+          <input type="number" id="pendapatan" class="form-control with-prefix"
+                 placeholder="5.000.000" min="0" step="50000">
+        </div>
+        <span class="form-hint">Gaji/penghasilan setelah pajak yang kamu terima tiap bulan.</span>
+      </div>
+
+      <!-- Pengeluaran Wajib -->
+      <div class="form-group">
+        <label class="form-label">Pengeluaran Wajib per Bulan (Rp)</label>
+        <div class="input-prefix-wrap">
+          <span class="input-prefix">Rp</span>
+          <input type="number" id="pengeluaran_wajib" class="form-control with-prefix"
+                 placeholder="2.000.000" min="0" step="50000">
+        </div>
+        <span class="form-hint">Sewa/cicilan KPR, cicilan kendaraan, tagihan listrik/air/internet.</span>
+      </div>
+
+      <!-- Pengeluaran Tambahan -->
+      <div class="form-group">
+        <label class="form-label">Pengeluaran Sehari-hari (Rp)</label>
+        <div class="input-prefix-wrap">
+          <span class="input-prefix">Rp</span>
+          <input type="number" id="pengeluaran_tambahan" class="form-control with-prefix"
+                 placeholder="1.500.000" min="0" step="50000">
+        </div>
+        <span class="form-hint">Belanja, makan, transportasi harian, hiburan, dll.</span>
+      </div>
+
+      <!-- Baris bawah: Tanggungan + Kota -->
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Jumlah Tanggungan</label>
+          <input type="number" id="tanggungan" class="form-control"
+                 placeholder="0" min="0" max="20" value="0">
+          <span class="form-hint">Anak, pasangan, orang tua, dll.</span>
+        </div>
+        <div class="form-group" style="margin-bottom:0">
+          <label class="form-label">Kota Tinggal</label>
+          <input type="text" id="kota" class="form-control"
+                 placeholder="Jakarta" maxlength="50">
+          <span class="form-hint">Untuk penyesuaian biaya hidup.</span>
+        </div>
+      </div>
+
+      <!-- Sisa uang preview -->
+      <div class="sisa-preview" id="sisa-preview" style="display:none;">
+        <span class="sisa-label">Sisa setelah pengeluaran:</span>
+        <span class="sisa-value" id="sisa-value">Rp 0</span>
+      </div>
+
+      <!-- Tombol -->
+      <div style="display:flex; gap:12px; margin-top:28px;">
+        <button class="btn btn-primary" id="btn-analyze" onclick="analyzeBudget()">
+          <span id="btn-text">✦ Analisis dengan AI</span>
+          <span id="btn-spinner" style="display:none;">⏳ Menganalisis...</span>
+        </button>
+        <button class="btn btn-outline" onclick="resetForm()">↺ Reset</button>
+      </div>
+
+      <!-- Error message -->
+      <div class="error-box" id="error-box" style="display:none;"></div>
+    </div>
+  </div>
+
+  <!-- ── Kolom Kanan: Output AI ────────────────────────────── -->
+  <div class="budget-output-col" id="output-col">
+
+    <!-- State kosong -->
+    <div class="empty-state" id="empty-state">
+      <div class="empty-icon">◎</div>
+      <p class="empty-title">Hasil analisis akan muncul di sini</p>
+      <p class="empty-text">Isi data keuangan di sebelah kiri, lalu klik<br><strong>Analisis dengan AI</strong>.</p>
+    </div>
+
+    <!-- State loading -->
+    <div class="loading-state" id="loading-state" style="display:none;">
+      <div class="loading-orb"></div>
+      <p class="loading-text">Gemini AI sedang menganalisis<br>kondisi keuanganmu…</p>
+    </div>
+
+    <!-- Output hasil -->
+    <div id="result-container" style="display:none;">
+
+      <!-- Status Badge + Ringkasan -->
+      <div class="result-header" id="result-header">
+        <div class="status-badge" id="status-badge">—</div>
+        <p class="result-ringkasan" id="result-ringkasan">—</p>
+      </div>
+
+      <!-- 3 Kartu Alokasi -->
+      <div class="alloc-grid">
+        <div class="alloc-card alloc-kebutuhan">
+          <p class="alloc-label">Kebutuhan</p>
+          <p class="alloc-amount" id="alloc-kebutuhan-rp">Rp —</p>
+          <p class="alloc-pct" id="alloc-kebutuhan-pct">— %</p>
+          <div class="alloc-bar-wrap"><div class="alloc-bar" id="bar-kebutuhan"></div></div>
+        </div>
+        <div class="alloc-card alloc-keinginan">
+          <p class="alloc-label">Keinginan</p>
+          <p class="alloc-amount" id="alloc-keinginan-rp">Rp —</p>
+          <p class="alloc-pct" id="alloc-keinginan-pct">— %</p>
+          <div class="alloc-bar-wrap"><div class="alloc-bar" id="bar-keinginan"></div></div>
+        </div>
+        <div class="alloc-card alloc-tabungan">
+          <p class="alloc-label">Tabungan</p>
+          <p class="alloc-amount" id="alloc-tabungan-rp">Rp —</p>
+          <p class="alloc-pct" id="alloc-tabungan-pct">— %</p>
+          <div class="alloc-bar-wrap"><div class="alloc-bar" id="bar-tabungan"></div></div>
+        </div>
+      </div>
+
+      <!-- Saran Naratif AI -->
+      <div class="card saran-card">
+        <p class="card-title">✦ Saran dari AI</p>
+        <p class="saran-text" id="saran-text">—</p>
+      </div>
+
+      <!-- Tips -->
+      <div class="card tips-card">
+        <p class="card-title">💡 Tips untuk Kamu</p>
+        <ul class="tips-list" id="tips-list"></ul>
+      </div>
+
+      <!-- Tombol reset hasil -->
+      <button class="btn btn-outline" style="margin-top:8px; width:100%;"
+              onclick="resetForm()">↺ Analisis Ulang</button>
+    </div>
+
+  </div><!-- /output-col -->
+</div><!-- /budget-layout -->
+
+{% endblock %}
+
+
+{% block scripts %}
+<style>
+/* ── Layout ──────────────────────────────────────────────────── */
+.budget-layout {
+  display: grid;
+  grid-template-columns: 420px 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+/* ── Input helpers ───────────────────────────────────────────── */
+.input-prefix-wrap {
+  position: relative;
+}
+.input-prefix {
+  position: absolute;
+  left: 14px; top: 50%;
+  transform: translateY(-50%);
+  font-size: 13px;
+  color: var(--text-muted);
+  pointer-events: none;
+  font-family: var(--font-mono);
+}
+.form-control.with-prefix { padding-left: 38px; }
+
+.form-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+/* ── Sisa preview ────────────────────────────────────────────── */
+.sisa-preview {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: rgba(45,212,191,0.07);
+  border: 1px solid rgba(45,212,191,0.2);
+  border-radius: var(--radius-sm);
+  padding: 12px 16px;
+  margin-top: 20px;
+}
+.sisa-label { font-size: 13px; color: var(--text-secondary); }
+.sisa-value { font-family: var(--font-mono); font-size: 15px; font-weight: 600; color: var(--accent-teal); }
+
+/* ── Error box ───────────────────────────────────────────────── */
+.error-box {
+  background: rgba(251,113,133,0.1);
+  border: 1px solid rgba(251,113,133,0.3);
+  border-radius: var(--radius-sm);
+  color: var(--accent-rose);
+  font-size: 13px;
+  padding: 12px 16px;
+  margin-top: 16px;
+}
+
+/* ── Empty & Loading state ───────────────────────────────────── */
+.empty-state, .loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 40px;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-lg);
+}
+.empty-icon { font-size: 44px; opacity: 0.25; margin-bottom: 16px; }
+.empty-title { font-family: var(--font-display); font-size: 18px; color: var(--text-secondary); }
+.empty-text { font-size: 13px; color: var(--text-muted); margin-top: 8px; line-height: 1.6; }
+
+/* Loading orb */
+.loading-orb {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent-gold);
+  animation: spin 1s linear infinite;
+  margin-bottom: 20px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 14px; color: var(--text-secondary); line-height: 1.7; }
+
+/* ── Result header ───────────────────────────────────────────── */
+.result-header {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+.status-badge {
+  padding: 5px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.badge-sehat    { background: rgba(45,212,191,0.15); color: var(--accent-teal); border: 1px solid rgba(45,212,191,0.3); }
+.badge-perhatian{ background: rgba(201,168,76,0.15); color: var(--accent-gold); border: 1px solid rgba(201,168,76,0.3); }
+.badge-kritis   { background: rgba(251,113,133,0.15); color: var(--accent-rose); border: 1px solid rgba(251,113,133,0.3); }
+
+.result-ringkasan { font-size: 14px; color: var(--text-secondary); line-height: 1.5; }
+
+/* ── Alokasi grid ────────────────────────────────────────────── */
+.alloc-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.alloc-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 20px 18px;
+}
+.alloc-kebutuhan { border-top: 3px solid var(--accent-blue); }
+.alloc-keinginan { border-top: 3px solid var(--accent-gold); }
+.alloc-tabungan  { border-top: 3px solid var(--accent-teal); }
+
+.alloc-label  { font-size: 11px; font-family: var(--font-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 8px; }
+.alloc-amount { font-family: var(--font-display); font-size: 20px; color: var(--text-primary); margin-bottom: 4px; }
+.alloc-pct    { font-size: 12px; color: var(--text-secondary); margin-bottom: 12px; }
+.alloc-bar-wrap { background: var(--bg-hover); border-radius: 3px; height: 5px; overflow: hidden; }
+.alloc-bar { height: 100%; border-radius: 3px; width: 0%; transition: width 1s cubic-bezier(.4,0,.2,1); }
+.alloc-kebutuhan .alloc-bar { background: var(--accent-blue); }
+.alloc-keinginan .alloc-bar { background: var(--accent-gold); }
+.alloc-tabungan  .alloc-bar { background: var(--accent-teal); }
+
+/* ── Saran & Tips ────────────────────────────────────────────── */
+.saran-card, .tips-card { margin-bottom: 16px; }
+.saran-text { font-size: 14px; color: var(--text-secondary); line-height: 1.75; margin-top: 10px; }
+
+.tips-list { list-style: none; margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.tips-list li {
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding: 10px 14px;
+  background: var(--bg-base);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--accent-gold);
+  line-height: 1.5;
+}
+
+/* ── Fade-in animation ───────────────────────────────────────── */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-in { animation: fadeIn 0.4s ease both; }
+</style>
+
+<script>
+const fmt = (n) => new Intl.NumberFormat('id-ID', {
+  style: 'currency', currency: 'IDR', minimumFractionDigits: 0
+}).format(n);
+
+// ── Live preview sisa uang ─────────────────────────────────────
+['pendapatan','pengeluaran_wajib','pengeluaran_tambahan'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', updateSisa);
+});
+
+function updateSisa() {
+  const p  = parseFloat(document.getElementById('pendapatan')?.value) || 0;
+  const w  = parseFloat(document.getElementById('pengeluaran_wajib')?.value) || 0;
+  const t  = parseFloat(document.getElementById('pengeluaran_tambahan')?.value) || 0;
+  const sisa = p - w - t;
+
+  const wrap = document.getElementById('sisa-preview');
+  const val  = document.getElementById('sisa-value');
+  if (p > 0) {
+    wrap.style.display = 'flex';
+    val.textContent = fmt(sisa);
+    val.style.color = sisa < 0 ? 'var(--accent-rose)' : 'var(--accent-teal)';
+  } else {
+    wrap.style.display = 'none';
+  }
+}
+
+// ── Kirim data ke Flask & tampilkan hasil ─────────────────────
+async function analyzeBudget() {
+  const pendapatan          = parseFloat(document.getElementById('pendapatan').value) || 0;
+  const pengeluaran_wajib   = parseFloat(document.getElementById('pengeluaran_wajib').value) || 0;
+  const pengeluaran_tambahan= parseFloat(document.getElementById('pengeluaran_tambahan').value) || 0;
+  const tanggungan          = parseInt(document.getElementById('tanggungan').value) || 0;
+  const kota                = document.getElementById('kota').value.trim() || 'Indonesia';
+
+  // ── Validasi sisi klien ──
+  hideError();
+  if (!pendapatan) return showError('Pendapatan tidak boleh kosong.');
+  if ((pengeluaran_wajib + pengeluaran_tambahan) >= pendapatan)
+    return showError('Total pengeluaran melebihi pendapatan. Periksa kembali angkanya.');
+
+  // ── Tampilkan loading ──
+  setLoading(true);
+
+  try {
+    const res = await fetch('/budget/analyze', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pendapatan, pengeluaran_wajib, pengeluaran_tambahan, tanggungan, kota })
+    });
+    const json = await res.json();
+
+    if (json.success) {
+      renderResult(json.data);
+    } else {
+      showError(json.error || 'Terjadi kesalahan. Coba lagi.');
+      setLoading(false);
+    }
+  } catch (e) {
+    showError('Gagal menghubungi server. Pastikan aplikasi berjalan dengan benar.');
+    setLoading(false);
+  }
+}
+
+// ── Render output ke UI ────────────────────────────────────────
+function renderResult(data) {
+  setLoading(false);
+
+  // Status badge
+  const badge = document.getElementById('status-badge');
+  const statusClass = { sehat: 'badge-sehat', perhatian: 'badge-perhatian', kritis: 'badge-kritis' };
+  const statusLabel = { sehat: '✓ Sehat', perhatian: '⚠ Perhatian', kritis: '✕ Kritis' };
+  badge.className = `status-badge ${statusClass[data.status] || 'badge-perhatian'}`;
+  badge.textContent = statusLabel[data.status] || data.status;
+  document.getElementById('result-ringkasan').textContent = data.ringkasan || '';
+
+  // Alokasi cards
+  document.getElementById('alloc-kebutuhan-rp').textContent  = fmt(data.alokasi.kebutuhan);
+  document.getElementById('alloc-keinginan-rp').textContent  = fmt(data.alokasi.keinginan);
+  document.getElementById('alloc-tabungan-rp').textContent   = fmt(data.alokasi.tabungan);
+  document.getElementById('alloc-kebutuhan-pct').textContent = data.persen.kebutuhan + '%';
+  document.getElementById('alloc-keinginan-pct').textContent = data.persen.keinginan + '%';
+  document.getElementById('alloc-tabungan-pct').textContent  = data.persen.tabungan  + '%';
+
+  // Progress bars (delay agar animasi terlihat)
+  setTimeout(() => {
+    document.getElementById('bar-kebutuhan').style.width = data.persen.kebutuhan + '%';
+    document.getElementById('bar-keinginan').style.width = data.persen.keinginan + '%';
+    document.getElementById('bar-tabungan').style.width  = data.persen.tabungan  + '%';
+  }, 150);
+
+  // Saran naratif
+  document.getElementById('saran-text').textContent = data.saran_ai || '';
+
+  // Tips
+  const ul = document.getElementById('tips-list');
+  ul.innerHTML = '';
+  (data.tips || []).forEach(tip => {
+    const li = document.createElement('li');
+    li.textContent = tip;
+    ul.appendChild(li);
+  });
+
+  // Tampilkan result container
+  document.getElementById('empty-state').style.display   = 'none';
+  document.getElementById('loading-state').style.display = 'none';
+  document.getElementById('result-container').style.display = 'block';
+  document.getElementById('result-container').classList.add('fade-in');
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function setLoading(on) {
+  document.getElementById('btn-text').style.display    = on ? 'none'  : 'inline';
+  document.getElementById('btn-spinner').style.display = on ? 'inline': 'none';
+  document.getElementById('btn-analyze').disabled      = on;
+
+  document.getElementById('empty-state').style.display    = on ? 'none' : 'flex';
+  document.getElementById('loading-state').style.display  = on ? 'flex' : 'none';
+  document.getElementById('result-container').style.display = 'none';
+}
+
+function showError(msg) {
+  const box = document.getElementById('error-box');
+  box.textContent = '⚠ ' + msg;
+  box.style.display = 'block';
+}
+function hideError() {
+  document.getElementById('error-box').style.display = 'none';
+}
+
+function resetForm() {
+  ['pendapatan','pengeluaran_wajib','pengeluaran_tambahan'].forEach(id => {
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('tanggungan').value = '0';
+  document.getElementById('kota').value = '';
+  document.getElementById('sisa-preview').style.display = 'none';
+  hideError();
+  document.getElementById('result-container').style.display = 'none';
+  document.getElementById('loading-state').style.display   = 'none';
+  document.getElementById('empty-state').style.display     = 'flex';
+  fetch('/budget/reset', { method: 'POST' });
+}
+</script>
+{% endblock %}
+
