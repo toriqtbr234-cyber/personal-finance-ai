@@ -15,7 +15,7 @@ from config import Config
 def _get_model():
     """Inisialisasi dan kembalikan model Gemini."""
     genai.configure(api_key=Config.GEMINI_API_KEY)
-    return genai.GenerativeModel("gemini-1.5-flash")
+    return genai.GenerativeModel("gemini-3.1-flash-lite")
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -354,9 +354,9 @@ def chat_financial_advisor(
     try:
         genai.configure(api_key=Config.GEMINI_API_KEY)
         model = genai.GenerativeModel(
-            model_name="gemini-1.5-flash",
-            system_instruction=system_with_context
-        )
+    model_name="gemini-3.1-flash-lite",
+    system_instruction=system_with_context
+)
 
         # Bangun riwayat chat untuk multi-turn
         chat = model.start_chat(history=riwayat)
