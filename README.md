@@ -4,7 +4,7 @@
 
 ![Python](https://img.shields.io/badge/Python-3.9+-blue?style=flat-square&logo=python)
 ![Flask](https://img.shields.io/badge/Flask-3.0.3-black?style=flat-square&logo=flask)
-![Gemini](https://img.shields.io/badge/Gemini-1.5_Flash-orange?style=flat-square&logo=google)
+![Gemini](https://img.shields.io/badge/Gemini-3.1_FlashLite-orange?style=flat-square&logo=google)
 ![License](https://img.shields.io/badge/License-MIT-green?style=flat-square)
 
 ---
@@ -40,7 +40,7 @@ project for the AI Developer Program at Parahyangan Catholic University.
 ## 🛠️ Tech Stack
 
 - **Backend:** Python 3.x, Flask 3.0.3
-- **AI Engine:** Google Gemini 1.5 Flash API
+- **AI Engine:** Google Gemini 3.1 Flash Lite API
 - **Visualisation:** Matplotlib 3.9.0
 - **PDF Generation:** ReportLab 4.2.2
 - **Data Processing:** Pandas 2.2.2
